@@ -4,21 +4,36 @@
       <h1 class="menu__title">Найди пару</h1>
       <p class="menu__message">Выполнил Астахов Алексей</p>
 
-      <div class="menu__difficulty">
-        <h2 class="menu__difficulty-title">Выберите сложность:</h2>
-
-        <div class="menu__difficulty-buttons">
+      <div class="menu__section">
+        <h2 class="menu__section-title">Количество карт:</h2>
+        <div class="menu__buttons">
           <button
             v-for="option in difficultyOptions"
             :key="option.value"
-            class="menu__difficulty-btn"
+            class="menu__btn"
             :class="{
-              'menu__difficulty-btn--active':
-                selectedDifficulty === option.value,
+              'menu__btn--active': selectedDifficulty === option.value,
             }"
-            @click="() => (selectedDifficulty = option.value)"
+            @click="selectedDifficulty = option.value"
           >
             {{ option.label }} ({{ option.value }} карт)
+          </button>
+        </div>
+      </div>
+
+      <div class="menu__section">
+        <h2 class="menu__section-title">Количество слоёв:</h2>
+        <div class="menu__buttons">
+          <button
+            v-for="option in layersOptions"
+            :key="option.value"
+            class="menu__btn"
+            :class="{
+              'menu__btn--active': selectedLayers === option.value,
+            }"
+            @click="selectedLayers = option.value"
+          >
+            {{ option.label }}
           </button>
         </div>
       </div>
@@ -29,16 +44,33 @@
 
       <div class="menu__scores">
         <h2 class="menu__scores-title">Текущие рекорды:</h2>
-        <div class="menu__scores-list">
+        <div class="menu__scores-table">
+          <div class="menu__scores-row menu__scores-row--header">
+            <div class="menu__scores-cell">Сложность</div>
+            <div
+              v-for="layer in layersOptions"
+              :key="layer.value"
+              class="menu__scores-cell"
+            >
+              {{ layer.label }}
+            </div>
+          </div>
+
           <div
-            v-for="option in difficultyOptions"
-            :key="option.value"
-            class="menu__scores-item"
+            v-for="difficulty in difficultyOptions"
+            :key="difficulty.value"
+            class="menu__scores-row"
           >
-            <span class="menu__scores-label">{{ option.label }}:</span>
-            <span class="menu__scores-value">
-              {{ formatScores(getBestScores[option.value]) }}
-            </span>
+            <div class="menu__scores-cell menu__scores-cell--difficulty">
+              {{ difficulty.label }}
+            </div>
+            <div
+              v-for="layer in layersOptions"
+              :key="layer.value"
+              class="menu__scores-cell"
+            >
+              {{ formatScores(getBestScores[difficulty.value]?.[layer.value]) }}
+            </div>
           </div>
         </div>
       </div>
@@ -59,7 +91,13 @@ export default {
         { label: "Средний", value: 14 },
         { label: "Сложный", value: 20 },
       ],
+      layersOptions: [
+        { label: "1 слой", value: 1 },
+        { label: "3 слоя", value: 3 },
+        { label: "5 слоёв", value: 5 },
+      ],
       selectedDifficulty: 10,
+      selectedLayers: 1,
     };
   },
 
@@ -71,7 +109,10 @@ export default {
     ...mapActions("cards", ["startGame"]),
 
     handleStartGame() {
-      this.startGame(this.selectedDifficulty);
+      this.startGame({
+        difficulty: this.selectedDifficulty,
+        layers: this.selectedLayers,
+      });
       this.$router.push("/game");
     },
 
@@ -102,6 +143,7 @@ export default {
     max-width: 500px;
     width: 100%;
     padding: 25px 30px;
+    margin: 20px 0;
     background-color: white;
     border-radius: 20px;
     text-align: center;
@@ -120,23 +162,23 @@ export default {
     margin-bottom: 20px;
   }
 
-  &__difficulty {
+  &__section {
     margin-bottom: 30px;
   }
 
-  &__difficulty-title {
+  &__section-title {
     font-size: 22px;
     color: #4f4d4d;
     margin-bottom: 20px;
   }
 
-  &__difficulty-buttons {
+  &__buttons {
     display: flex;
     flex-direction: column;
     gap: 15px;
   }
 
-  &__difficulty-btn {
+  &__btn {
     padding: 15px 20px;
     font-size: 16px;
     border: 2px solid #e0e0e0;
@@ -150,7 +192,7 @@ export default {
     }
   }
 
-  &__difficulty-btn--active {
+  &__btn--active {
     border-color: rgb(184, 13, 122);
     background-color: rgb(184, 13, 122);
     color: white;
@@ -183,28 +225,36 @@ export default {
     margin-bottom: 10px;
   }
 
-  &__scores-list {
+  &__scores-table {
     display: flex;
-    justify-content: space-around;
+    flex-direction: column;
     gap: 10px;
   }
 
-  &__scores-item {
+  &__scores-row {
+    display: grid;
+    grid-template-columns: 1fr repeat(3, 1fr);
+    gap: 10px;
+    align-items: center;
+
+    &--header {
+      font-weight: bold;
+      color: #666;
+      border-bottom: 2px solid #ddd;
+      padding-bottom: 10px;
+    }
+  }
+
+  &__scores-cell {
+    padding: 8px;
     text-align: center;
-  }
+    font-size: 16px;
 
-  &__scores-label {
-    display: block;
-    font-size: 18px;
-    color: #403e3e;
-    margin-bottom: 5px;
-  }
-
-  &__scores-value {
-    display: block;
-    font-size: 20px;
-    font-weight: bold;
-    color: blue;
+    &--difficulty {
+      font-weight: 600;
+      color: #444;
+      text-align: left;
+    }
   }
 }
 </style>

@@ -1,7 +1,8 @@
-import { createCards, isGameComplete } from "../utils/cardsInit";
+import { createCards, isGameComplete, getTopCards } from "../utils/cardsInit";
 
 export const MUTATIONS = {
   SET_DIFFICULTY: "SET_DIFFICULTY",
+  SET_LAYERS: "SET_LAYERS",
   START_GAME: "START_GAME",
   FLIP_CARD: "FLIP_CARD",
   SET_CARDS_FACE_UP: "SET_CARDS_FACE_UP",
@@ -15,14 +16,18 @@ export const MUTATIONS = {
 };
 
 const loadBestScores = () => {
-  const scores = localStorage.getItem("bestScores");
-  return scores
-    ? JSON.parse(scores)
-    : {
-        10: null,
-        14: null,
-        20: null,
-      };
+  const defaultScores = {
+    10: { 1: null, 3: null, 5: null },
+    14: { 1: null, 3: null, 5: null },
+    20: { 1: null, 3: null, 5: null },
+  };
+
+  try {
+    const saved = localStorage.getItem("bestScores");
+    return saved ? { ...defaultScores, ...JSON.parse(saved) } : defaultScores;
+  } catch {
+    return defaultScores;
+  }
 };
 
 export default {
@@ -32,6 +37,7 @@ export default {
     return {
       cards: [],
       difficulty: 10,
+      layers: 1,
       gameStatus: "menu", //menu, playing, finished
       openedCards: [],
       canFlip: true,
@@ -43,6 +49,7 @@ export default {
   getters: {
     getCards: (state) => state.cards,
     getDifficulty: (state) => state.difficulty,
+    getLayers: (state) => state.layers,
     getGameStatus: (state) => state.gameStatus,
     getOpenedCards: (state) => state.openedCards,
     getCanFlip: (state) => state.canFlip,
@@ -55,7 +62,8 @@ export default {
       return `${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
     },
     currentBestScore: (state) => {
-      return state.bestScores[state.difficulty];
+      const difficultyScores = state.bestScores[state.difficulty];
+      return difficultyScores ? difficultyScores[state.layers] : null;
     },
     getFormattedBestScore: (state, getters) => {
       const best = getters.currentBestScore;
@@ -64,6 +72,24 @@ export default {
       const seconds = best % 60;
       return `${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
     },
+    getTopCards: (state) => {
+      return getTopCards(state.cards);
+    },
+    getCardsByPosition: (state) => {
+      const cardsByPosition = {};
+      state.cards.forEach((card) => {
+        if (!cardsByPosition[card.position]) {
+          cardsByPosition[card.position] = [];
+        }
+        cardsByPosition[card.position].push(card);
+      });
+
+      Object.keys(cardsByPosition).forEach((position) => {
+        cardsByPosition[position].sort((a, b) => a.layer - b.layer);
+      });
+
+      return cardsByPosition;
+    },
   },
 
   mutations: {
@@ -71,8 +97,12 @@ export default {
       state.difficulty = payload;
     },
 
+    [MUTATIONS.SET_LAYERS]: (state, payload) => {
+      state.layers = payload;
+    },
+
     [MUTATIONS.START_GAME]: (state) => {
-      state.cards = createCards(state.difficulty);
+      state.cards = createCards(state.difficulty, state.layers);
       state.gameStatus = "playing";
       state.openedCards = [];
       state.canFlip = true;
@@ -81,12 +111,16 @@ export default {
 
     [MUTATIONS.FLIP_CARD]: (state, payload) => {
       const card = state.cards.find((c) => c.id === payload);
+      const topCards = getTopCards(state.cards);
+      const isTopCard = topCards.some((c) => c.id === payload);
+
       if (
         card &&
         !card.isFounded &&
         !card.isFaceUp &&
         state.canFlip &&
-        state.openedCards.length < 2
+        state.openedCards.length < 2 &&
+        isTopCard
       ) {
         card.isFaceUp = true;
         state.openedCards.push(card);
@@ -132,11 +166,13 @@ export default {
     },
 
     [MUTATIONS.SET_BEST_SCORES]: (state, payload) => {
-      if (
-        !state.bestScores[payload.difficulty] ||
-        payload.time < state.bestScores[payload.difficulty]
-      ) {
-        state.bestScores[payload.difficulty] = payload.time;
+      if (!state.bestScores[payload.difficulty]) {
+        state.bestScores[payload.difficulty] = { 1: null, 3: null, 5: null };
+      }
+
+      const currentBest = state.bestScores[payload.difficulty][payload.layers];
+      if (!currentBest || payload.time < currentBest) {
+        state.bestScores[payload.difficulty][payload.layers] = payload.time;
         localStorage.setItem("bestScores", JSON.stringify(state.bestScores));
       }
     },
@@ -152,7 +188,8 @@ export default {
 
   actions: {
     startGame: (store, payload) => {
-      store.commit(MUTATIONS.SET_DIFFICULTY, payload);
+      store.commit(MUTATIONS.SET_DIFFICULTY, payload.difficulty);
+      store.commit(MUTATIONS.SET_LAYERS, payload.layers);
       store.commit(MUTATIONS.START_GAME);
     },
 
@@ -164,7 +201,10 @@ export default {
         }
 
         const card = store.state.cards.find((c) => c.id === payload);
-        if (!card || card.isFounded || card.isFaceUp) {
+        const topCards = getTopCards(store.state.cards);
+        const isTopCard = topCards.some((c) => c.id === payload);
+
+        if (!card || card.isFounded || card.isFaceUp || !isTopCard) {
           resolve();
           return;
         }
@@ -212,6 +252,7 @@ export default {
           if (isGameComplete(store.state.cards)) {
             store.commit(MUTATIONS.SET_BEST_SCORES, {
               difficulty: store.state.difficulty,
+              layers: store.state.layers,
               time: store.state.elapsedTime,
             });
             store.commit(MUTATIONS.SET_GAME_STATUS, "finished");

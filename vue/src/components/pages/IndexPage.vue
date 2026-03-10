@@ -14,7 +14,7 @@
             :class="{
               'menu__btn--active': selectedDifficulty === option.value,
             }"
-            @click="selectedDifficulty = option.value"
+            @click="() => (selectedDifficulty = option.value)"
           >
             {{ option.label }} ({{ option.value }} карт)
           </button>
@@ -31,7 +31,7 @@
             :class="{
               'menu__btn--active': selectedLayers === option.value,
             }"
-            @click="selectedLayers = option.value"
+            @click="() => (selectedLayers = option.value)"
           >
             {{ option.label }}
           </button>
@@ -69,7 +69,7 @@
               :key="layer.value"
               class="menu__scores-cell"
             >
-              {{ formatScores(getBestScores[difficulty.value]?.[layer.value]) }}
+              {{ getScore(difficulty.value, layer.value) }}
             </div>
           </div>
         </div>
@@ -121,6 +121,11 @@ export default {
       const minutes = Math.floor(seconds / 60);
       const remainingSeconds = seconds % 60;
       return `${minutes.toString().padStart(2, "0")}:${remainingSeconds.toString().padStart(2, "0")}`;
+    },
+
+    getScore(difficulty, layer) {
+      const score = this.getBestScores[difficulty]?.[layer];
+      return this.formatScores(score);
     },
   },
 };

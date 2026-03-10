@@ -4,19 +4,29 @@
       <button class="game__back-button" @click="() => goToMenu()">
         В меню
       </button>
-      <h1 class="game__timer">{{ getFormattedTime }}</h1>
+      <div class="game__info">
+        <span class="game__layers-info">Слоёв: {{ getLayers }}</span>
+        <h1 class="game__timer">{{ getFormattedTime }}</h1>
+      </div>
     </header>
 
     <div
       class="game__cards-container"
-      :class="`game__cards-container--${getCards.length}`"
+      :class="`game__cards-container--${getDifficulty}`"
     >
-      <Card
-        v-for="card in getCards"
-        :key="card.id"
-        :card="card"
-        @flip="(cardId) => handleFlip(cardId)"
-      />
+      <div
+        v-for="(positionCards, position) in getCardsByPosition"
+        :key="position"
+        class="game__card-stack"
+      >
+        <Card
+          v-for="card in positionCards"
+          :key="card.id"
+          :card="card"
+          :is-top-card="isTopCard(card)"
+          @flip="(cardId) => handleFlip(cardId)"
+        />
+      </div>
     </div>
 
     <div v-if="isGameFinished" class="game-over">
@@ -26,11 +36,17 @@
 
         <div class="game-over__stats">
           <div class="game-over__stat">
-            <span class="game-over__stat-label">Ваше время: </span>
+            <span class="game-over__stat-label">Сложность:</span>
+            <span class="game-over__stat-value"
+              >Карт: {{ getDifficulty }}, Слоев: {{ getLayers }}</span
+            >
+          </div>
+          <div class="game-over__stat">
+            <span class="game-over__stat-label">Ваше время:</span>
             <span class="game-over__stat-value">{{ getFormattedTime }}</span>
           </div>
           <div class="game-over__stat">
-            <span class="game-over__stat-label">Рекорд: </span>
+            <span class="game-over__stat-label">Рекорд:</span>
             <span class="game-over__stat-value">{{
               getFormattedBestScore
             }}</span>
@@ -82,11 +98,14 @@ export default {
     ...mapGetters("cards", [
       "getCards",
       "getDifficulty",
+      "getLayers",
       "getElapsedTime",
       "getBestScores",
       "isGameFinished",
       "getFormattedTime",
       "getFormattedBestScore",
+      "getTopCards",
+      "getCardsByPosition",
     ]),
   },
 
@@ -108,6 +127,11 @@ export default {
       "resetGame",
       "updateTime",
     ]),
+
+    isTopCard(card) {
+      const topCards = this.getTopCards;
+      return topCards.some((c) => c.id === card.id);
+    },
 
     handleFlip(cardId) {
       if (!this.isGameStarted && !this.isGameFinished) {
@@ -136,14 +160,18 @@ export default {
     },
 
     checkNewRecord() {
-      const currentBest = this.getBestScores[this.getDifficulty];
+      const currentBest =
+        this.getBestScores[this.getDifficulty]?.[this.getLayers];
       this.isNewRecord = !currentBest || this.getElapsedTime < currentBest;
     },
 
     restartGame() {
       this.isGameStarted = false;
       this.isNewRecord = false;
-      this.startGame(this.getDifficulty);
+      this.startGame({
+        difficulty: this.getDifficulty,
+        layers: this.getLayers,
+      });
     },
 
     goToMenu() {
@@ -173,6 +201,21 @@ export default {
     padding: 15px 20px;
     border-radius: 10px;
     margin-bottom: 30px;
+  }
+
+  &__info {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+  }
+
+  &__layers-info {
+    background: rgb(184, 13, 122);
+    color: white;
+    padding: 5px 15px;
+    border-radius: 20px;
+    font-size: 16px;
+    font-weight: bold;
   }
 
   &__back-button {
@@ -208,6 +251,13 @@ export default {
     &--20 {
       grid-template-columns: repeat(8, 1fr);
     }
+  }
+
+  &__card-stack {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-height: 220px;
   }
 }
 
@@ -249,13 +299,32 @@ export default {
     gap: 10px;
   }
 
+  &__stat {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px solid #eee;
+
+    &:last-child {
+      border-bottom: none;
+    }
+  }
+
   &__stat-label {
     font-size: 18px;
   }
 
   &__stat-value {
-    font-size: 18px;
+    font-size: 20px;
     font-weight: bold;
+  }
+
+  &__new-record {
+    color: gold;
+    font-size: 24px;
+    font-weight: bold;
+    margin: 15px 0;
   }
 
   &__buttons {
